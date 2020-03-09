@@ -1,18 +1,28 @@
-from geopy.geocoders import Nominatim
-import threading
+import geopy
+
 import datetime
-import io
+import io, sys, os
 import tweepy
 import json
 import keys
-geolocator = Nominatim(user_agent="TestApp")
+import pygame, random
+
+geolocator = geopy.geocoders.Nominatim(user_agent="help err plz")
 
 ####----TWEEPY SETUP----####
 
 auth = tweepy.OAuthHandler(keys.API_KEY[0], keys.API_KEY[1])
 auth.set_access_token(keys.ACCESS_TOKEN[0],keys.ACCESS_TOKEN[1])
 word = tweepy.API(auth)
-cities = []
+cities = ['Greenville, SC', 'Washington,DC', 'Tampa, FL', 'Moscow, Russia']
+dist_mult = [720, 360]
+
+RED = (255,0,0)
+YELLOW = (255,255,0)
+GREEN = (0,255,0)
+BLUE = (0,0,255)
+PURPLE = (255,255,0)
+
 
 class MyStreamListener(tweepy.StreamListener):
 
@@ -22,12 +32,13 @@ class MyStreamListener(tweepy.StreamListener):
             if loc != None:
                 try:
                     cities.append(loc)
-                    print("Appending: " + loc)
+                    # print(type(loc))
+                    # print(loc)
                 except: 
                     pass
         except:
             pass
-        if datetime.datetime.now() - sTime >=  datetime.timedelta(hours=0, minutes=0, seconds=10):
+        if datetime.datetime.now() - sTime >=  datetime.timedelta(hours=0, minutes=0, seconds=30):
             return False
 
     def on_error(self, status_code):
@@ -36,22 +47,51 @@ class MyStreamListener(tweepy.StreamListener):
             print(status_code)
 
 def proc_loc():
+    
+    processing = False
     locations = []
     print(cities)
-    for city in cities:
-        if city:
-            try:
-                location = geolocator.geocode(city)
-                print("New LOC: " + location)
-                locations.append((location.latitude, location.longitude))
-                print("Successful Append")
-            except:
-                print("Err")
+    pygame.init()
+    os.environ['SDL_VIDEO_WINDOW_POS'] = "50,50"
+    win = pygame.display.set_mode((1440, 720))    
+    fps = 60
+    fpsClock = pygame.time.Clock()  
+
+    colors = [RED,YELLOW,BLUE,PURPLE,GREEN]
+    while True:
+        win.fill((0, 0, 0))
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+        
+        # Update.
+        if len(cities) > 0:
+            city = cities.pop()
+            if city:
+                try:
+                    l = geolocator.geocode(city)
+                    locations.append((l.latitude, l.longitude))
+                except:
+                    pass
             
-    with open("locations_coord.txt", "w+") as f:
+                
+                
+        # with open("locations_coord.txt", "a+") as f: #FOR PUTTING IN A FILE
+        #     for location in locations:
+        #         f.write(str(location[0]) +","+ str(location[1]) + "\n")
+            
+        # Draw.
+        
         for location in locations:
-            print("Writing " + location)
-            f.write(location + "\n")
+            pos_y = (((720/2)+location[0])*-1) +720
+            pos_x = (1440/2)+location[1]
+            
+            pygame.draw.rect(win,YELLOW,(pos_x,pos_y,4,4))
+
+        pygame.display.flip()
+        fpsClock.tick(fps)
 
 def launch_stream():
     global sTime
@@ -70,5 +110,5 @@ def launch_stream():
 
 
 launch_stream()
-proc_loc()
 
+proc_loc()
