@@ -1,5 +1,4 @@
 import geopy
-
 import datetime
 import io, sys, os
 import tweepy
@@ -7,7 +6,13 @@ import json
 import keys
 import pygame, random
 
-geolocator = geopy.geocoders.Nominatim(user_agent="help err plz")
+from geopy.geocoders import Nominatim
+geolocator = Nominatim(user_agent="specify_your_app_name_here")
+
+from geopy.extra.rate_limiter import RateLimiter
+geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)
+
+
 
 ####----TWEEPY SETUP----####
 
@@ -21,7 +26,8 @@ RED = (255,0,0)
 YELLOW = (255,255,0)
 GREEN = (0,255,0)
 BLUE = (0,0,255)
-PURPLE = (255,255,0)
+PURPLE = (255, 0, 255)
+WHITE = (255,255,255)
 
 
 class MyStreamListener(tweepy.StreamListener):
@@ -69,13 +75,20 @@ def proc_loc():
         # Update.
         if len(cities) > 0:
             city = cities.pop()
+            print(city)
             if city:
                 try:
+                    print("Trying City : " + city)
                     l = geolocator.geocode(city)
+                    print("Location got")
                     locations.append((l.latitude, l.longitude))
-                except:
-                    pass
-            
+                    print(l)
+                    print(locations)
+                except Exception as e:
+                    print(e)
+                    
+        else:
+            pygame.draw.rect(win,WHITE,(0,0,4,4))    
                 
                 
         # with open("locations_coord.txt", "a+") as f: #FOR PUTTING IN A FILE
@@ -84,9 +97,12 @@ def proc_loc():
             
         # Draw.
         
+        pygame.draw.rect(win,(255,255,255), (720,360,4,4))
+        
         for location in locations:
-            pos_y = (((720/2)+location[0])*-1) +720
-            pos_x = (1440/2)+location[1]
+            pos_y = (((720/2) + location[0]) * -1) + 720
+            pos_x = (1440/2) + location[1] 
+            print((pos_y,pos_x))
             
             pygame.draw.rect(win,YELLOW,(pos_x,pos_y,4,4))
 
@@ -109,6 +125,6 @@ def launch_stream():
 
 
 
-launch_stream()
+#launch_stream()
 
 proc_loc()
