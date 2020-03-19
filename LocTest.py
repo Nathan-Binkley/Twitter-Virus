@@ -1,15 +1,21 @@
-import geopy
 import datetime
-import io, sys, os
-import tweepy
+import io
 import json
-import keys
-import pygame, random
+import os
+import random
+import sys
+import time
 
+import pygame
+import tweepy
+import geopy
+from geopy.extra.rate_limiter import RateLimiter
 from geopy.geocoders import Nominatim
+
+import keys
+
 geolocator = Nominatim(user_agent="specify_your_app_name_here")
 
-from geopy.extra.rate_limiter import RateLimiter
 geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)
 
 
@@ -20,7 +26,9 @@ auth = tweepy.OAuthHandler(keys.API_KEY[0], keys.API_KEY[1])
 auth.set_access_token(keys.ACCESS_TOKEN[0],keys.ACCESS_TOKEN[1])
 word = tweepy.API(auth)
 cities = ['Greenville, SC', 'Washington,DC', 'Tampa, FL', 'Moscow, Russia']
-dist_mult = [720, 360]
+locations = {} #json formatter plz yes
+
+dist_mult = [720, 360] #used later for drawing on the map
 
 RED = (255,0,0)
 YELLOW = (255,255,0)
@@ -38,8 +46,6 @@ class MyStreamListener(tweepy.StreamListener):
             if loc != None:
                 try:
                     cities.append(loc)
-                    # print(type(loc))
-                    # print(loc)
                 except: 
                     pass
         except:
@@ -54,8 +60,8 @@ class MyStreamListener(tweepy.StreamListener):
 
 def proc_loc():
     
-    processing = False
-    locations = []
+    
+    location_coords = []
     print(cities)
     pygame.init()
     os.environ['SDL_VIDEO_WINDOW_POS'] = "50,50"
@@ -63,7 +69,7 @@ def proc_loc():
     fps = 60
     fpsClock = pygame.time.Clock()  
 
-    colors = [RED,YELLOW,BLUE,PURPLE,GREEN]
+
     while True:
         win.fill((0, 0, 0))
         
@@ -75,15 +81,21 @@ def proc_loc():
         # Update.
         if len(cities) > 0:
             city = cities.pop()
-            print(city)
+            
             if city:
                 try:
-                    print("Trying City : " + city)
-                    l = geolocator.geocode(city)
-                    print("Location got")
-                    locations.append((l.latitude, l.longitude))
-                    print(l)
-                    print(locations)
+                    if city in locations:
+                        print("city in locations")
+                        location_coords.append((locations[str(city)]['lat'],locations[str(city)]['long']))
+                        print("location added to json")
+                        time.sleep(.5)
+                    else:
+                        print("city not in locations")
+                        l = geolocator.geocode(city)
+                        location_coords.append((l.latitude, l.longitude))
+                        format_json(locations, str(city), l.latitude, l.longitude)
+                        print("Formatted Json")
+                    
                 except Exception as e:
                     print(e)
                     
@@ -91,40 +103,61 @@ def proc_loc():
             pygame.draw.rect(win,WHITE,(0,0,4,4))    
                 
                 
-        # with open("locations_coord.txt", "a+") as f: #FOR PUTTING IN A FILE
-        #     for location in locations:
-        #         f.write(str(location[0]) +","+ str(location[1]) + "\n")
+        
+        
+        
+        
+        for location in location_coords:
+            pos_y = (((720/2) + 4*location[0]) * -1) + 720
+            pos_x = (1440/2) + 4*location[1] 
             
-        # Draw.
-        
-        pygame.draw.rect(win,(255,255,255), (720,360,4,4))
-        
-        for location in locations:
-            pos_y = (((720/2) + location[0]) * -1) + 720
-            pos_x = (1440/2) + location[1] 
-            print((pos_y,pos_x))
             
             pygame.draw.rect(win,YELLOW,(pos_x,pos_y,4,4))
 
+        write_json(locations)
+        
         pygame.display.flip()
         fpsClock.tick(fps)
 
 def launch_stream():
-    global sTime
+    global sTime #start time
     sTime = datetime.datetime.now()
     myStreamListener = MyStreamListener() 
     myStream = tweepy.Stream(auth = word.auth, listener = myStreamListener)
     myStream.filter(follow = ['25073877'], is_async = False) #Best solution.
     
 
-# with open("locations.txt","w+") as f: #Wipe the file
-#     f.truncate()
-# t2 = threading.Thread(target=proc_loc,args=())
-# t2.start()
-# t2.join()
+def write_json(data): # format of 
+                                 # { cities: [ {cityname: cityname, lat: lat, long: long},...] }
+    with io.open("locations.json", "w") as f:
+        json.dump(data, f, indent = 4)
+
+def format_json(data, city, lat, lon):
+    data[city] = []
+    data[city] = {
+        "lat" : lat,
+        "long" : lon
+    }
+
+def pass_in_json(): # Return list (city name, lat, long) ???
+    global locations
+    try:
+        with open("locations.json", "r") as f:
+            locations = json.loads(f.read())
+    except:
+        pass
+    
+
+pass_in_json()
 
 
 
 #launch_stream()
 
 proc_loc()
+
+
+
+
+
+
